@@ -83,38 +83,6 @@ The frontend will start on `http://localhost:8501` (or another port if 8501 is o
 
 Open your web browser and navigate to the URL shown in the Streamlit terminal (usually `http://localhost:8501`)
 
-## How to Use
-
-### Normal Operation (No Vulnerability)
-
-1. Set a payload (e.g., "Hello")
-2. Set the payload length to match the actual payload size (e.g., 5)
-3. Click "Send Heartbeat Request"
-4. Observe that only the payload is returned
-5. No memory leak occurs when lengths match
-
-### Exploiting the Vulnerability
-
-1. Set a small payload (e.g., "test")
-2. Set the payload length to a much larger value (e.g., 10000)
-3. Click "Send Heartbeat Request"
-4. Observe that the server returns the payload PLUS leaked memory data
-5. Check the "Leaked Memory Data" section to see what was extracted
-6. The frontend provides multiple view modes:
-   - **Extracted Data**: Shows structured sensitive data (private keys, credentials, API keys, tokens, payment info, etc.)
-   - **Readable Only**: Displays only readable ASCII characters with detected sensitive patterns
-   - **Hex Dump**: Shows memory dump in standard hex format
-   - **Readable Strings**: Lists extracted readable strings from the leaked memory
-   - **Raw**: Shows all leaked data including non-printable characters
-
-### Tips for Best Results
-
-- Start with a small payload length (e.g., 1000) and gradually increase it
-- Larger payload lengths (e.g., 50000-65536) will leak more memory and reveal more sensitive data
-- The backend simulates dummy sensitive data scattered throughout memory at various offsets
-- Try multiple requests with different payload lengths to extract different portions of memory
-- All extracted data is validated and filtered to show clean, readable dummy data
-
 ## How the Vulnerability Works
 
 ### The Heartbleed Bug
@@ -177,17 +145,6 @@ All sensitive data in this demo is **DUMMY/FAKE** for educational purposes:
 - **Database URLs**: Dummy connection strings
 
 All data is clearly marked as dummy/fake throughout the application.
-
-## Educational Value
-
-This demonstration helps understand:
-- How the Heartbleed vulnerability works in practice
-- Why input validation is critical for security
-- How memory leaks can expose sensitive data
-- The importance of keeping software up-to-date
-- How attackers can extract confidential information from server memory
-- The impact of trusting client-provided data without validation
-- Real-world consequences of memory disclosure vulnerabilities
 
 ## API Endpoints (Backend Only)
 
