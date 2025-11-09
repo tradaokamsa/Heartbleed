@@ -16,8 +16,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Simulated sensitive data in memory (this is what gets leaked)
-# Formatted for better readability and demonstration
+# ============================================================================
+# DUMMY SENSITIVE DATA - For Educational Demonstration Only
+# All data is fake and does not represent real credentials or sensitive information
+# ============================================================================
+
 SENSITIVE_DATA = {
     "private_key": """-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj
@@ -26,29 +29,30 @@ B1C2D3E4F5G6H7I8J9K0L1M2N3O4P5Q6R7S8T9U0V1W2X3Y4Z5A6B7C8D9E0F1G2
 H3I4J5K6L7M8N9O0P1Q2R3S4T5U6V7W8X9Y0Z1A2B3C4D5E6F7G8H9I0J1K2L3M4
 N5O6P7Q8R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4R5S6
 T7U8V9W0X1Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y8
------END PRIVATE KEY-----""",
+-----END PRIVATE KEY-----
+NOTE: This is a DUMMY key for educational purposes only""",
     
-    "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4iLCJwYXNzd29yZCI6InNlY3JldDEyMyIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTcwMDAwMDAwMH0.abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+    "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiZHVtbXlfdXNlciIsInBhc3N3b3JkIjoiZHVtbXlfMTIzNDU2Iiwicm9sZSI6InVzZXIiLCJleHAiOjE3MDAwMDAwMDB9.abcdefghijklmnopqrstuvwxyz1234567890DUMMY_TOKEN",
     
-    "credit_card": "4532-1234-5678-9010",
-    "cvv": "123",
-    "expiry": "12/25",
+    "credit_card": "0000-0000-0000-0000",
+    "cvv": "000",
+    "expiry": "00/00",
     
-    "password": "SuperSecretPassword123!",
-    "username": "admin",
+    "password": "dummy_password_12345",
+    "username": "dummy_user",
     
-    "api_key": "sk_live_51H8xY9K8mN3pQ7rT2vW5zA9bC4dF6gH8jK1lM3nP5qR7sT9uV",
-    "secret_key": "sec_9xY8zW7vU6tS5rQ4pO3nM2lK1jI0hG9fE8dD7cC6bB5aA4",
+    "api_key": "sk_test_000000000000000000000000000000000000000000000000",
+    "secret_key": "sec_test_000000000000000000000000000000000000000000000000",
     
-    "database_url": "postgresql://user:password@localhost:5432/mydb",
-    "redis_password": "redis_secret_key_2024",
+    "database_url": "postgresql://dummy_user:dummy_pass@localhost:5432/dummy_db",
+    "redis_password": "dummy_redis_password_12345",
     
-    "email": "admin@example.com",
-    "phone": "+1-555-123-4567",
+    "email": "dummy@example.com",
+    "phone": "+1-555-000-0000",
     
-    "ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC...",
+    "ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDummyKeyForDemoOnly...",
     
-    "oauth_token": "oauth_token_abc123xyz789",
+    "oauth_token": "dummy_oauth_token_1234567890abcdef",
 }
 
 class HeartbeatRequest(BaseModel):
@@ -64,50 +68,58 @@ def generate_memory_dump() -> bytes:
     """
     Simulate memory dump that could contain sensitive data.
     In a real Heartbleed attack, this would be actual memory from the server.
+    All data is dummy/fake for educational purposes.
     """
-    # Create a buffer with some sensitive data scattered around
+    # Create a buffer with some dummy sensitive data scattered around
     memory = bytearray(65536)  # 64KB buffer
     
     # Fill with random data
     for i in range(len(memory)):
         memory[i] = random.randint(0, 255)
     
-    # Inject sensitive data at various offsets with labels
-    sensitive_strings = [
+    # Inject dummy sensitive data at various offsets with labels
+    # Add newlines to separate data from random bytes for better extraction
+    dummy_strings = [
         # Labels first
-        b"=== PRIVATE KEY START ===",
-        bytes(SENSITIVE_DATA["private_key"], "utf-8"),
-        b"=== PRIVATE KEY END ===",
+        b"=== PRIVATE KEY START ===\n",
+        bytes(SENSITIVE_DATA["private_key"], "utf-8") + b"\n",
+        b"=== PRIVATE KEY END ===\n",
         
-        b"SESSION_TOKEN: " + bytes(SENSITIVE_DATA["session_token"], "utf-8"),
-        b"PASSWORD: " + bytes(SENSITIVE_DATA["password"], "utf-8"),
-        b"USERNAME: " + bytes(SENSITIVE_DATA["username"], "utf-8"),
+        b"SESSION_TOKEN: " + bytes(SENSITIVE_DATA["session_token"], "utf-8") + b"\n",
+        b"PASSWORD: " + bytes(SENSITIVE_DATA["password"], "utf-8") + b"\n",
+        b"USERNAME: " + bytes(SENSITIVE_DATA["username"], "utf-8") + b"\n",
         
-        b"API_KEY: " + bytes(SENSITIVE_DATA["api_key"], "utf-8"),
-        b"SECRET_KEY: " + bytes(SENSITIVE_DATA["secret_key"], "utf-8"),
+        b"API_KEY: " + bytes(SENSITIVE_DATA["api_key"], "utf-8") + b"\n",
+        b"SECRET_KEY: " + bytes(SENSITIVE_DATA["secret_key"], "utf-8") + b"\n",
         
-        b"CREDIT_CARD: " + bytes(SENSITIVE_DATA["credit_card"], "utf-8"),
-        b"CVV: " + bytes(SENSITIVE_DATA["cvv"], "utf-8"),
-        b"EXPIRY: " + bytes(SENSITIVE_DATA["expiry"], "utf-8"),
+        b"CREDIT_CARD: " + bytes(SENSITIVE_DATA["credit_card"], "utf-8") + b"\n",
+        b"CVV: " + bytes(SENSITIVE_DATA["cvv"], "utf-8") + b"\n",
+        b"EXPIRY: " + bytes(SENSITIVE_DATA["expiry"], "utf-8") + b"\n",
         
-        b"DATABASE_URL: " + bytes(SENSITIVE_DATA["database_url"], "utf-8"),
-        b"REDIS_PASSWORD: " + bytes(SENSITIVE_DATA["redis_password"], "utf-8"),
+        b"DATABASE_URL: " + bytes(SENSITIVE_DATA["database_url"], "utf-8") + b"\n",
+        b"REDIS_PASSWORD: " + bytes(SENSITIVE_DATA["redis_password"], "utf-8") + b"\n",
         
-        b"EMAIL: " + bytes(SENSITIVE_DATA["email"], "utf-8"),
-        b"PHONE: " + bytes(SENSITIVE_DATA["phone"], "utf-8"),
+        b"EMAIL: " + bytes(SENSITIVE_DATA["email"], "utf-8") + b"\n",
+        b"PHONE: " + bytes(SENSITIVE_DATA["phone"], "utf-8") + b"\n",
         
-        b"SSH_KEY: " + bytes(SENSITIVE_DATA["ssh_key"], "utf-8"),
-        b"OAUTH_TOKEN: " + bytes(SENSITIVE_DATA["oauth_token"], "utf-8"),
+        b"SSH_KEY: " + bytes(SENSITIVE_DATA["ssh_key"], "utf-8") + b"\n",
+        b"OAUTH_TOKEN: " + bytes(SENSITIVE_DATA["oauth_token"], "utf-8") + b"\n",
     ]
     
-    # Distribute sensitive data throughout memory at various offsets
+    # Distribute dummy data throughout memory at various offsets
+    # Use offsets that give enough space for each data item
     offsets = [100, 800, 1500, 3000, 6000, 12000, 18000, 25000, 35000, 45000, 55000, 60000, 62000, 63000, 64000, 65000]
     offset_idx = 0
-    for data in sensitive_strings:
+    for data in dummy_strings:
         if offset_idx < len(offsets):
             start = offsets[offset_idx]
             end = min(start + len(data), len(memory))
-            memory[start:end] = data[:end-start]
+            # Only write if we have enough space
+            if end - start >= len(data):
+                memory[start:start + len(data)] = data
+            else:
+                # Write what we can
+                memory[start:end] = data[:end-start]
             offset_idx += 1
     
     return bytes(memory)

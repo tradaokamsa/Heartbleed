@@ -133,13 +133,48 @@ def extract_structured_data(cleaned_data: str) -> dict:
                 })
     
     # Extract key-value pairs (LABEL: value format)
-    kv_pattern = r'([A-Z_]+):\s*([^\n\r]{5,200})'
+    kv_pattern = r'([A-Z_]+):\s*([^\n\r]{1,200})'
     for match in re.finditer(kv_pattern, cleaned_data):
         key = match.group(1).strip()
         value = match.group(2).strip().rstrip('.')
         
-        # Skip if value is mostly dots
-        if value.count('.') > len(value) * 0.5:
+        # Skip if value is mostly dots (more than 50% dots)
+        if len(value) > 0 and value.count('.') > len(value) * 0.5:
+            continue
+        
+        # Skip if value has too many consecutive dots (likely corrupted)
+        if '..' in value and value.count('..') > 2:
+            continue
+        
+        # For EMAIL and PHONE, extract the actual value more carefully
+        if key == "EMAIL":
+            # Try to extract a clean email from the value
+            # Remove any trailing garbage after a valid email
+            email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', value)
+            if email_match:
+                clean_email = email_match.group(1)
+                # Validate the email is reasonable
+                if (clean_email.count('.') <= 3 and 
+                    '..' not in clean_email and 
+                    5 <= len(clean_email) <= 50):
+                    extracted["contact_info"].append({
+                        "type": "email",
+                        "value": clean_email,
+                        "offset": match.start()
+                    })
+            continue
+        
+        if key == "PHONE":
+            # Extract phone number more carefully
+            phone_match = re.search(r'(\+?[\d\-\(\)\s]{7,20})', value)
+            if phone_match:
+                clean_phone = phone_match.group(1).strip()
+                if len(clean_phone) >= 7 and len(clean_phone) <= 20:
+                    extracted["contact_info"].append({
+                        "type": "phone",
+                        "value": clean_phone,
+                        "offset": match.start()
+                    })
             continue
         
         # Categorize the extracted data
@@ -173,12 +208,6 @@ def extract_structured_data(cleaned_data: str) -> dict:
                 "value": value,
                 "offset": match.start()
             })
-        elif key in ["EMAIL", "PHONE"]:
-            extracted["contact_info"].append({
-                "type": key.lower(),
-                "value": value,
-                "offset": match.start()
-            })
         elif key in ["SSH_KEY"]:
             extracted["other"].append({
                 "type": key.lower(),
@@ -198,16 +227,50 @@ def extract_structured_data(cleaned_data: str) -> dict:
                 "offset": match.start()
             })
     
-    # Extract email addresses
+    # Extract email addresses (with validation to filter out corrupted random bytes)
     email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
     for match in re.finditer(email_pattern, cleaned_data):
         email = match.group(0)
-        if not any(c['value'] == email for c in extracted["contact_info"] if c['type'] == 'email'):
-            extracted["contact_info"].append({
-                "type": "email",
-                "value": email,
-                "offset": match.start()
-            })
+        
+        # Skip if we already have this email
+        if any(c['value'] == email for c in extracted["contact_info"] if c['type'] == 'email'):
+            continue
+        
+        # Validate email: filter out corrupted emails
+        # 1. Should not have excessive dots (more than 3 dots total is suspicious)
+        if email.count('.') > 3:
+            continue
+        
+        # 2. Should not have consecutive dots
+        if '..' in email:
+            continue
+        
+        # 3. Should have reasonable length (emails are typically 5-50 chars)
+        if len(email) < 5 or len(email) > 50:
+            continue
+        
+        # 4. Should not be mostly dots (more than 30% dots is suspicious)
+        if email.count('.') / len(email) > 0.3:
+            continue
+        
+        # 5. Local part (before @) should be reasonable
+        local_part = email.split('@')[0] if '@' in email else ''
+        if len(local_part) < 1 or len(local_part) > 30:
+            continue
+        
+        # 6. Domain part (after @) should be reasonable
+        if '@' in email:
+            domain_part = email.split('@')[1]
+            if '.' not in domain_part or len(domain_part) < 4:
+                continue
+        
+        # 7. Prefer emails that look like valid dummy data (contains "dummy", "example", "test", etc.)
+        # But still allow other reasonable-looking emails
+        extracted["contact_info"].append({
+            "type": "email",
+            "value": email,
+            "offset": match.start()
+        })
     
     # Extract credit card numbers
     cc_pattern = r'\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}'
@@ -409,6 +472,7 @@ def main():
                 formatted_data = format_leaked_data(leaked_data)
                 
                 st.subheader("Leaked Memory Data")
+                st.info("⚠️ **Note:** All leaked data shown is DUMMY/FAKE data for educational demonstration only.")
                 st.markdown(f"**Total leaked:** {formatted_data['total_length']:,} bytes")
                 if formatted_data['truncated'] > 0:
                     displayed_size = formatted_data['total_length'] - formatted_data['truncated']
@@ -420,18 +484,19 @@ def main():
                 if view_mode == "Extracted Data":
                     # Show extracted structured data
                     st.markdown("### Extracted Sensitive Data")
-                    st.caption("Structured data extracted from leaked memory. This shows what an attacker could extract from the vulnerability.")
+                    st.caption("Structured data extracted from leaked memory. This shows what an attacker could extract from the vulnerability. **All data is DUMMY/FAKE for educational purposes.**")
                     
                     structured = formatted_data['structured_data']
                     has_data = any(structured.values())
                     
                     if not has_data:
                         st.warning("No structured data found in the leaked memory. Try increasing the payload length to leak more memory.")
-                        st.info("The backend contains sensitive data like private keys, credentials, API keys, and more. Increase the leak size to extract them.")
+                        st.info("The backend contains dummy sensitive data like private keys, credentials, API keys, and more. Increase the leak size to extract them.")
                     else:
                         # Private Keys
                         if structured["private_keys"]:
                             st.markdown("#### Private Keys")
+                            st.caption("⚠️ **DUMMY KEY** - This is fake data for demonstration only")
                             for idx, key_data in enumerate(structured["private_keys"], 1):
                                 with st.expander(f"Private Key #{idx} (Offset: {key_data['offset']:,}, Length: {key_data['length']:,} bytes)"):
                                     st.code(key_data['content'], language="text")
@@ -440,6 +505,7 @@ def main():
                         # Credentials
                         if structured["credentials"]:
                             st.markdown("#### Credentials")
+                            st.caption("⚠️ **DUMMY CREDENTIALS** - All data is fake for demonstration only")
                             cred_col1, cred_col2 = st.columns(2)
                             for idx, cred in enumerate(structured["credentials"]):
                                 col = cred_col1 if idx % 2 == 0 else cred_col2
@@ -455,6 +521,7 @@ def main():
                         # API Keys
                         if structured["api_keys"]:
                             st.markdown("#### API Keys & Secrets")
+                            st.caption("⚠️ **DUMMY API KEYS** - All data is fake for demonstration only")
                             for idx, key_data in enumerate(structured["api_keys"], 1):
                                 st.text_input(
                                     f"{key_data['type'].replace('_', ' ').title()} (Offset: {key_data['offset']:,})",
@@ -468,6 +535,7 @@ def main():
                         # Tokens
                         if structured["tokens"]:
                             st.markdown("#### Tokens")
+                            st.caption("⚠️ **DUMMY TOKENS** - All data is fake for demonstration only")
                             for idx, token_data in enumerate(structured["tokens"], 1):
                                 with st.expander(f"{token_data['type'].replace('_', ' ').title()} #{idx} (Offset: {token_data['offset']:,})"):
                                     st.code(token_data['value'], language="text")
@@ -478,6 +546,7 @@ def main():
                         # Payment Information
                         if structured["payment_info"]:
                             st.markdown("#### Payment Information")
+                            st.caption("⚠️ **DUMMY PAYMENT INFO** - All data is fake (e.g., 0000-0000-0000-0000) for demonstration only")
                             payment_col1, payment_col2 = st.columns(2)
                             for idx, payment in enumerate(structured["payment_info"]):
                                 col = payment_col1 if idx % 2 == 0 else payment_col2
@@ -494,6 +563,7 @@ def main():
                         # Database Information
                         if structured["database_info"]:
                             st.markdown("#### Database Information")
+                            st.caption("⚠️ **DUMMY DATABASE INFO** - All data is fake for demonstration only")
                             for idx, db_data in enumerate(structured["database_info"], 1):
                                 st.text_input(
                                     f"{db_data['type'].replace('_', ' ').title()} (Offset: {db_data['offset']:,})",
@@ -507,6 +577,7 @@ def main():
                         # Contact Information
                         if structured["contact_info"]:
                             st.markdown("#### Contact Information")
+                            st.caption("⚠️ **DUMMY CONTACT INFO** - All data is fake for demonstration only")
                             contact_col1, contact_col2 = st.columns(2)
                             for idx, contact in enumerate(structured["contact_info"]):
                                 col = contact_col1 if idx % 2 == 0 else contact_col2
@@ -522,6 +593,7 @@ def main():
                         # Other
                         if structured["other"]:
                             st.markdown("#### Other Sensitive Data")
+                            st.caption("⚠️ **DUMMY DATA** - All data is fake for demonstration only")
                             for idx, other_data in enumerate(structured["other"], 1):
                                 with st.expander(f"{other_data['type'].replace('_', ' ').title()} #{idx} (Offset: {other_data['offset']:,})"):
                                     st.code(other_data['value'], language="text")
@@ -530,12 +602,12 @@ def main():
                         # Summary
                         total_extracted = sum(len(items) for items in structured.values())
                         st.success(f"**Extracted {total_extracted} piece(s) of sensitive data from leaked memory!**")
-                        st.warning("This demonstrates how the Heartbleed vulnerability can expose confidential information stored in server memory.")
                 
                 elif view_mode == "Readable Only":
                     # Show only readable content
                     st.markdown("### Memory Dump (Readable Characters Only)")
                     st.caption("Non-printable characters are replaced with dots (.). Only readable ASCII content is shown.")
+                    st.info("⚠️ **Note:** All data shown is DUMMY/FAKE for educational demonstration only.")
                     
                     # Show sensitive patterns first
                     if formatted_data['sensitive_patterns']:
@@ -591,6 +663,7 @@ def main():
                 elif view_mode == "Hex Dump":
                     st.markdown("### Memory Dump (Hex Format)")
                     st.caption("Standard hex dump format: offset | hex bytes | ASCII representation")
+                    st.info("⚠️ **Note:** All data shown is DUMMY/FAKE for educational demonstration only.")
                     st.text_area(
                         "Hex dump",
                         value=formatted_data['hex_dump'],
@@ -601,6 +674,7 @@ def main():
                 elif view_mode == "Readable Strings":
                     st.markdown("### Extracted Readable Strings Only")
                     st.caption("Only sequences of readable ASCII characters (6+ characters) are shown.")
+                    st.info("⚠️ **Note:** All data shown is DUMMY/FAKE for educational demonstration only.")
                     if formatted_data['readable_strings']:
                         strings_text = "\n\n".join([
                             f"Offset {pos:,}:\n{string}" 
@@ -620,6 +694,7 @@ def main():
                 elif view_mode == "Raw":
                     st.markdown("### Memory Dump (Raw - All Characters)")
                     st.warning("This view shows all data including non-printable characters. It may appear garbled.")
+                    st.info("⚠️ **Note:** All data shown is DUMMY/FAKE for educational demonstration only.")
                     st.text_area(
                         "Raw leaked data",
                         value=formatted_data['displayed_clean'],
@@ -642,6 +717,8 @@ def main():
             2. Set payload_length to 10000
             3. Click "Send Heartbeat Request"
             4. Watch the leaked data appear!
+            
+            **Note:** All leaked data will be DUMMY/FAKE data for educational purposes.
             """)
     
     # Explanation section
