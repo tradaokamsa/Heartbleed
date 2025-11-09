@@ -1,7 +1,2 @@
-python=3.11.4
-fastapi
-uvicorn
-streamlit
-requests
-pydantic
+streamlit>=1.28.0
 
